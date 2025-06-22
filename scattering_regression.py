@@ -17,11 +17,12 @@ from kymatio.scattering3d.utils import generate_weighted_sum_of_gaussians
 from kymatio.datasets import fetch_qm7
 from kymatio.caching import get_cache_dir
 from sklearn.ensemble import AdaBoostRegressor
-
+from sklearn.decomposition import PCA
 import os
 import csv
 import numpy as np
-
+import pickle
+from get_scat_coeff import get_scat_coeff
 # === PARAMÈTRES ===
 data_dir = "data"
 atoms_dir = os.path.join(data_dir, "atoms", "train")
@@ -95,63 +96,7 @@ dataset = {
     "charges": charges_array,
     "energies": energies_array
 }
-
-# ✅ Vérification
-print("positions shape:", dataset["positions"].shape)
-print("charges shape:", dataset["charges"].shape)
-print("energies shape:", dataset["energies"].shape)
-
-pos = dataset['positions']
-full_charges = dataset['charges']
-
-n_molecules = pos.shape[0]
-
-mask = full_charges <= 2
-valence_charges = full_charges * mask
-
-mask = np.logical_and(full_charges > 2, full_charges <= 10)
-valence_charges += (full_charges - 2) * mask
-
-mask = np.logical_and(full_charges > 10, full_charges <= 18)
-valence_charges += (full_charges - 10) * mask
-
-overlapping_precision = 1e-1
-sigma = 2.0
-min_dist = np.inf
-
-for i in range(n_molecules):
-    n_atoms = np.sum(full_charges[i] != 0)
-    pos_i = pos[i, :n_atoms, :]
-    min_dist = min(min_dist, pdist(pos_i).min())
-
-delta = sigma * np.sqrt(-8 * np.log(overlapping_precision))
-pos = pos * delta / min_dist
-
-
-#M, N, O = 192, 128, 96
-M, N, O = 64, 64, 64
-
-grid = np.mgrid[-M//2:-M//2+M, -N//2:-N//2+N, -O//2:-O//2+O]
-grid = np.fft.ifftshift(grid)
-
-J = 2
-L = 3
-integral_powers = [0.5, 1.0, 2.0, 3.0, 4.0, 5.0]
-
-scattering = HarmonicScattering3D(J=J, shape=(M, N, O),
-                                  L=L, sigma_0=sigma,
-                                  integral_powers=integral_powers)
-
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda" if use_cuda else "cpu")
-scattering.to(device)
-
-batch_size = 8
-n_batches = int(np.ceil(n_molecules / batch_size))
-
-
-import pickle
-
+n_molecules = len(dataset['energies'])
 
 scattering_coef = pickle.load(open("scattering_coef_64_64_64.pkl", "rb"))    
 
@@ -173,20 +118,23 @@ for i in range(n_folds):
 
 # Set the desired hyperparameters grid
 param_grid = {
-    'boosting__n_estimators': [ 150],
-    'boosting__learning_rate': [0.0097, 0.01, 0.015, 0.02],
-    'boosting__estimator__alpha': [1e-10]
+    'boosting__n_estimators': [ 200],
+    'boosting__learning_rate': [  0.0001],
+    'boosting__estimator__alpha': [ 1e-6]
 }
 
 # Define the base regressor with the specified alpha
 ridge = linear_model.Ridge()
-
 # Create the AdaBoost regressor
 boosting_regressor = AdaBoostRegressor(estimator=ridge)
 
 # Create the pipeline
+poly = preprocessing.PolynomialFeatures(degree=2, include_bias=False)
+    
 scaler = preprocessing.StandardScaler()
-regressor = pipeline.Pipeline([
+regressor = pipeline.Pipeline([ 
+    ('pca', PCA(n_components=50)),
+    ('poly', poly),
     ('scaler', scaler),
     ('boosting', boosting_regressor)
 ])
@@ -281,62 +229,21 @@ for i in range(num_test):
 pos_test = positions_array_test
 full_charges_test = charges_array_test
 
-mask = full_charges_test <= 2
-valence_charges_test = full_charges_test * mask
 
-mask = np.logical_and(full_charges_test > 2, full_charges_test <= 10)
-valence_charges_test += (full_charges_test - 2) * mask
 
-mask = np.logical_and(full_charges_test > 10, full_charges_test <= 18)
-valence_charges_test += (full_charges_test - 10) * mask
+M = 32
+N = 32
+O = 32
+J = 3
+L = 3
+scattering_coef_test = get_scat_coeff(pos_test, full_charges_test, M, N, O, J, L,str_type="test")
 
-# Appliquer le même delta de redimensionnement
-pos_test = pos_test * delta / min_dist
-
-# Calcul des coefficients de scattering pour les données test
-n_test = num_test
-n_batches_test = int(np.ceil(n_test / batch_size))
-order_0_test, orders_1_and_2_test = [], []
-
-for i in range(n_batches_test):
-    start = i * batch_size
-    end = min(start + batch_size, n_test)
-
-    pos_batch = pos_test[start:end]
-    full_batch = full_charges_test[start:end]
-    val_batch = valence_charges_test[start:end]
-
-    full_density = generate_weighted_sum_of_gaussians(grid, pos_batch, full_batch, sigma)
-    val_density = generate_weighted_sum_of_gaussians(grid, pos_batch, val_batch, sigma)
-    core_density = full_density - val_density
-
-    full_density = torch.from_numpy(full_density).to(device).float()
-    val_density = torch.from_numpy(val_density).to(device).float()
-    core_density = torch.from_numpy(core_density).to(device).float()
-
-    full_order_0 = TorchBackend3D.compute_integrals(full_density, integral_powers)
-    val_order_0 = TorchBackend3D.compute_integrals(val_density, integral_powers)
-    core_order_0 = TorchBackend3D.compute_integrals(core_density, integral_powers)
-
-    full_scattering = scattering(full_density)
-    val_scattering = scattering(val_density)
-    core_scattering = scattering(core_density)
-
-    batch_order_0 = torch.stack((full_order_0, val_order_0, core_order_0), dim=-1)
-    batch_orders_1_and_2 = torch.stack((full_scattering, val_scattering, core_scattering), dim=-1)
-
-    order_0_test.append(batch_order_0)
-    orders_1_and_2_test.append(batch_orders_1_and_2)
-
-order_0_test = torch.cat(order_0_test, dim=0).cpu().numpy().reshape((n_test, -1))
-orders_1_and_2_test = torch.cat(orders_1_and_2_test, dim=0).cpu().numpy().reshape((n_test, -1))
-scattering_coef_test = np.concatenate([order_0_test, orders_1_and_2_test], axis=1)
 
 # Prédictions
 predicted_energies = grid_search.predict(scattering_coef_test)
 
 # Sauvegarde dans un CSV
-output_file = "test_predictions.csv"
+output_file = "test_predictions_323232_3_3_1.csv"
 with open(output_file, "w", newline="") as f:
     writer = csv.writer(f)
     writer.writerow(["id", "energy"])
