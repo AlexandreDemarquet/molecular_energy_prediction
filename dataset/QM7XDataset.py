@@ -11,6 +11,9 @@ from torch_geometric.nn import SAGEConv, global_add_pool
 # import torch_cluster
 from utils import atom_to_int
 
+
+
+
 class QM7XDataset(torch.utils.data.Dataset):
     def __init__(self, xyz_dir, energy_csv):
         self.xyz_dir   = Path(xyz_dir)
@@ -70,3 +73,27 @@ class QM7XEmbedDataset(QM7XDataset):
         data     = Data(z=z, pos=pos)
         data.batch = torch.zeros(z.size(0), dtype=torch.long)
         return data, float(self.energy_df.loc[mol_id, 'energy'])
+    
+from utils import ATOM_TYPES
+class QM7XTestDataset(torch.utils.data.Dataset):
+    def __init__(self, xyz_dir):
+        self.xyz_dir = Path(xyz_dir)
+        self.files = sorted(self.xyz_dir.glob("id_*.xyz"))
+
+    def __len__(self):
+        return len(self.files)
+
+    def _load_xyz(self, file_path):
+        lines = file_path.open().read().splitlines()[2:]
+        atoms, pos = [], []
+        for line in lines:
+            s, x, y, z = line.split()
+            atoms.append(ATOM_TYPES.index(s))
+            pos.append([float(x), float(y), float(z)])
+        return torch.tensor(atoms, dtype=torch.long), torch.tensor(pos, dtype=torch.float)
+
+    def __getitem__(self, idx):
+        z, pos = self._load_xyz(self.files[idx])
+        data = Data(z=z, pos=pos)
+        data.batch = torch.zeros(z.size(0), dtype=torch.long)
+        return data
