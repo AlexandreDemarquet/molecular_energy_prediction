@@ -1,5 +1,5 @@
 
-📦 molecular_energy_prediction
+Molecular_energy_prediction
 ├─ dataAnalyse.ipynb :              # Visualisation et analyse statistiques du jeu de donéees 
 │                                       - Visualisation d'un exemple d'une molécule
 │                                       - Statistiques sur le dataset
@@ -8,10 +8,16 @@
 │                                                                             
 ├─ spectreMatriceCoulomb.ipynb :     # Prédiction de l'energie grace au spectre de la matricde de Coulomb des molécules
 │                                       
-│                                       
-│                                  
-├─ 📂 data/                         # Dataset QM7
 │
+├─ regression_multi_lin_application.ipynb:  # Prédiction de l'énergie avec regression multi linéaire sur coef scatering et/ou embeding contrastive learning                                     
+│                                  
+├─ 📂 dataset/                         # Dataset QM7 et dataset non labelisé pour apprentissage contrastive learning
+|  ├─ QM7XDataset.py
+│  |
+|  ├─ UnlabeledConstrastive.py
+|
+|
+|
 │                                  
 ├─ 📂 models/
 │  ├─         

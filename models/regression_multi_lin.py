@@ -33,8 +33,10 @@ class RegressionModel(nn.Module):
         super().__init__()
         self.elem = ElementwiseProd(input_dim, q, k)
         self.fc = nn.Linear(q, 1)
+        self.norm = nn.BatchNorm1d(input_dim)
 
     def forward(self, x):
+        x = self.norm(x)
         x = self.elem(x)
         out = self.fc(x)
         return out

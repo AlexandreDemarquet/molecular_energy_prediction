@@ -61,3 +61,12 @@ class QM7XDataset(torch.utils.data.Dataset):
 def collate_fn(batch):
     views1, views2 = zip(*batch)
     return Batch.from_data_list(views1), Batch.from_data_list(views2)
+
+class QM7XEmbedDataset(QM7XDataset):
+    def __getitem__(self, idx):
+        mol_id   = idx + 1
+        xyz_file = self.xyz_dir / f"id_{mol_id}.xyz"
+        z, pos   = self._load_xyz(xyz_file)
+        data     = Data(z=z, pos=pos)
+        data.batch = torch.zeros(z.size(0), dtype=torch.long)
+        return data, float(self.energy_df.loc[mol_id, 'energy'])
