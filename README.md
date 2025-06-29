@@ -9,7 +9,11 @@ Molecular_energy_prediction
 ├─ spectreMatriceCoulomb.ipynb :     # Prédiction de l'energie grace au spectre de la matricde de Coulomb des molécules
 │                                       
 │
-├─ regression_scatering_et_ou_contrastive.ipynb:  # Prédiction de l'énergie grace coef scatering et/ou embeding contrastive learning  (regession multi lineaire + contrastive learning)                                  
+├─ regression_scatering_et_ou_contrastive.ipynb:  # Prédiction de l'énergie grace coef scatering et/ou embeding contrastive learning  (regession multi lineaire + contrastive learning)                       
+|
+|
+|
+├─visualisation_scatering.ipynb : # FIchier pour visualiser les lobes (convolution densité et filtre de scatering)
 │                                  
 ├─ 📂 dataset/                         # Dataset QM7 et dataset non labelisé pour apprentissage contrastive learning
 |  ├─ QM7XDataset.py
