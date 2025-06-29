@@ -7,7 +7,12 @@ Molecular_energy_prediction
 ├─ histogramme.ipynb :              # Prédiction de l'energie grace à l'histogramme du type d'atomes des molécules
 │                                                                             
 ├─ spectreMatriceCoulomb.ipynb :     # Prédiction de l'energie grace au spectre de la matricde de Coulomb des molécules
-│                                       
+│
+│                                                                             
+├─ contrastive.ipynb :     # Implémentation d'une méthode contrastive pour apprendre des représentations invariantes 
+│                           par rotation/translations. Puis      prédictions sur ces représentations
+│
+│                                      
 │
 ├─ regression_scatering_et_ou_contrastive.ipynb:  # Prédiction de l'énergie grace coef scatering et/ou embeding contrastive learning  (regession multi lineaire + contrastive learning)                       
 |
@@ -24,10 +29,10 @@ Molecular_energy_prediction
 |
 │                                  
 ├─ 📂 models/
-│  ├─         
+│  ├─   contrastive_learning.py       # Encoder pour la méthode contrastive 
 │  │                              
 │  │                               
-│  └─          
+│  └─   regression_multi_lin.py       # Model de régression multi-linéaire      
 │                                  
 │                                  
 │ 
